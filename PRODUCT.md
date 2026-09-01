@@ -3,6 +3,8 @@
 <!-- impeccable:product-schema 1 -->
 
 > **Record note:** This product record is inferred from the finalized `PROJECT_CONTEXT.md` because no structured question tool was available. User-approved scope decisions are treated as confirmed; optional details remain open.
+>
+> **Product name:** BETRoblox.
 
 ## Platform
 
@@ -22,7 +24,7 @@ Enhance Roblox's web experience while retaining familiar Roblox workflows. The f
 
 ## Positioning
 
-A BTRoblox fork that keeps the original feature lineage, ports verified maintenance fixes from ReBTRoblox, and separates those behaviors from a substantially clearer UI.
+BETRoblox is a BTRoblox fork that keeps the original feature lineage, ports verified maintenance fixes from ReBTRoblox, and separates those behaviors from a substantially clearer UI.
 
 ## Operating Context
 
@@ -37,11 +39,11 @@ Users interact with the extension on Roblox catalog, item-detail, and avatar pag
 - Preferences are local, including feature toggles, light/dark preference, and reset.
 - The initial target is desktop Chromium; Firefox and later page families are out of phase one.
 - Public distribution is not part of the initial milestone.
-- Final project name and later-phase feature list are undecided.
+- Later-phase feature list remains undecided; the product name is BETRoblox.
 
 ## Brand Commitments
 
-- Use BTRoblox as the fork lineage and preserve appropriate upstream attribution.
+- Use BETRoblox as the product identity while preserving appropriate BTRoblox and ReBTRoblox attribution.
 - Use a clean, Roblox-native visual language with familiar task flows.
 - Do not carry over ReBTRoblox's UI as the new product identity.
 
@@ -50,7 +52,7 @@ Users interact with the extension on Roblox catalog, item-detail, and avatar pag
 - Original source: `https://github.com/AntiBoomz/BTRoblox`
 - Maintenance/fix reference: `https://github.com/nrmu9/ReBTRoblox`
 - Local source tree and upstream references are available for comparison.
-- No user research, custom visual assets, or final product name has been provided; future work must not fabricate claims or testimonials.
+- No user research or custom visual assets have been provided; future work must not fabricate claims or testimonials.
 
 ## Product Principles
 

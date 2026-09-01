@@ -112,7 +112,7 @@ pageInit.avatar = () => {
 					hijackFunction(AvatarAccoutrementService, "removeAssetFromAvatar", (target, thisArg, args) => {
 						if(args[0] === "btrGetWearingAssets") {
 							wearingAssets = args[1]
-							throw "BTRoblox: abort (this should never be visible)"
+							throw "BETRoblox: abort (this should never be visible)"
 						}
 						
 						return target.apply(thisArg, args)

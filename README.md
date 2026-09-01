@@ -1,10 +1,22 @@
-<a href="https://chrome.google.com/webstore/detail/btroblox/hbkpclpemjeibhioopcebchdmohaieln" title="Available in the Chrome Web Store"><img src="/img/ChromeWebStore_BadgeWBorder_v2_206x58.png" alt="Available in the Chrome Web Store"></a>&nbsp;&nbsp;&nbsp;<a href="https://addons.mozilla.org/en-US/firefox/addon/btroblox/" title="Get the add-on from the Firefox Add-ons store"><img src="/img/AMO-button_1.png" alt="Get the add-on from the Firefox Add-ons store"></a>
+BETRoblox
+=========
 
+BETRoblox is a Chromium Manifest V3 extension for Roblox. It keeps familiar Roblox workflows while providing a clearer catalog, item-details, and avatar experience. The first milestone is a local developer build; purchasing is intentionally out of scope.
 
-BTRoblox
-========
+> This project is based on the BTRoblox codebase and uses ReBTRoblox as a behavioral fix reference. See [ATTRIBUTION.md](ATTRIBUTION.md) before redistributing it.
 
-BTRoblox, or Better Roblox, is an extension that aims to enhance Roblox website's look and functionality by adding a plethora of new features and modifying the layout of some existing pages.
+Local development
+-----------------
+
+Chrome expects a file named `manifest.json`. For a local unpacked test, copy the Chromium manifest and load the repository directory:
+
+```sh
+cp manifest.chrome.json manifest.json
+```
+
+Then open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select this directory. The copied `manifest.json` is intentionally ignored by Git; keep it local.
+
+Supported pages are currently catalog, item details, and avatar surfaces. Account-dependent avatar editing, double clothing, wear/equip/favorite actions, and settings should be tested in an authenticated Roblox session.
 
 
 Links

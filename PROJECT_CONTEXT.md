@@ -1,10 +1,10 @@
-# Project Context: Reimagined Roblox Enhancement Extension
+# Project Context: BETRoblox
 
 ## Summary
-Create a new Chromium browser extension for Roblox by forking BTRoblox as the codebase, porting repaired behavior and fix logic from ReBTRoblox, and replacing the inherited UI with a clearer, cleaner design. ReBTRoblox is a fix reference, not the project lineage.
+Create BETRoblox, a Chromium browser extension for Roblox based on the BTRoblox codebase, porting repaired behavior and fix logic from ReBTRoblox, and replacing the inherited UI with a clearer, cleaner design. ReBTRoblox is a fix reference, not the project lineage.
 
 ## Problem
-BTRoblox is discontinued and some functionality, notably double clothing, stopped working. ReBTRoblox repairs the functionality but retains the general inherited UI. The project needs a more understandable interface without losing familiar Roblox workflows.
+The BTRoblox lineage is discontinued and some functionality, notably double clothing, stopped working. ReBTRoblox repairs the functionality but retains the general inherited UI. BETRoblox needs a more understandable interface without losing familiar Roblox workflows.
 
 ## Users or stakeholders
 - Roblox players using the desktop site in Chromium browsers.
@@ -74,6 +74,7 @@ Phase one covers catalog browsing, search/filtering, item details, previews, ava
 - Allow wear/equip/favorite actions but not purchases.
 - Periodically port relevant upstream fixes.
 - Initial validation is manual smoke testing.
+- The product name is BETRoblox; its GitHub source repository is maintained separately from the upstream repositories.
 - The project is non-commercial/personal in intent.
 
 ## Proposed decisions
@@ -111,15 +112,15 @@ Phase one covers catalog browsing, search/filtering, item details, previews, ava
 - Upstream code reuse and public redistribution may be restricted without compatible licensing or permission.
 
 ## Open questions
-- Final project name and visual branding.
+- Later-phase visual branding beyond the BETRoblox identity.
 - Exact later-phase feature list.
 - Public release and distribution plan after the local milestone.
 
 ## Documentation expected to change
 - `PROJECT_CONTEXT.md` (this scope artifact).
-- A future README covering local installation, build commands, supported pages, and limitations.
-- Attribution/license or permission notices before any redistribution.
-- A future phase-one manual test checklist and changelog.
+- A README covering local installation, supported pages, and limitations.
+- Attribution/license or permission notices before any public redistribution.
+- A phase-one manual test checklist and changelog.
 
 ## Suggested branch name
 `feat/roblox-ui-redesign`

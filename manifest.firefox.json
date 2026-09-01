@@ -1,14 +1,14 @@
 {
 	"manifest_version": 2,
 
-	"name": "BTRoblox - Making Roblox Better",
-	"short_name": "BTRoblox",
-	"description": "Enhance your Roblox experience!",
+	"name": "BETRoblox - Better Roblox",
+	"short_name": "BETRoblox",
+	"description": "A clearer Roblox catalog and avatar experience.",
 	"version": "3.6.22",
-	"author": "AntiBoomz",
+	"author": "BETRoblox contributors",
 
 	"browser_action": {
-		"default_title": "Open BTRoblox Settings"
+		"default_title": "Open BETRoblox Settings"
 	},
 
 	"icons": {

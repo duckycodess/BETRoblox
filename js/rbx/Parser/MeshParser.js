@@ -406,7 +406,7 @@ const RBXMeshParser = {
 					
 					const data = DracoBitstream.parse(stream)
 					
-					$.assert_warn(stream.GetRemaining() === 0, "[BTRoblox] Draco bitstream has extra data")
+					$.assert_warn(stream.GetRemaining() === 0, "[BETRoblox] Draco bitstream has extra data")
 					
 					for(const attribute of data.attributes) {
 						switch(attribute.uniqueId) {
@@ -434,7 +434,7 @@ const RBXMeshParser = {
 							mesh.vertexColors = Uint8Array.from(attribute.output)
 							break
 						default:
-							console.warn("[BTRoblox] Unknown draco attribute", attribute)
+							console.warn("[BETRoblox] Unknown draco attribute", attribute)
 						}
 					}
 					

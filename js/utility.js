@@ -6,7 +6,7 @@ const IS_CHROME = !IS_FIREFOX
 
 const IS_BACKGROUND_PAGE = !self.window || chrome.extension?.getBackgroundPage?.() === self.window
 const IS_CONTENT_SCRIPT = !IS_BACKGROUND_PAGE
-const IS_DEV_MODE = chrome.runtime.getManifest().short_name === "BTRoblox_DEV"
+const IS_DEV_MODE = ["BETRoblox_DEV", "BTRoblox_DEV"].includes(chrome.runtime.getManifest().short_name)
 
 const STORAGE = chrome.storage.local
 

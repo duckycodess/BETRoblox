@@ -106,8 +106,8 @@ const SHARED_DATA = {
 				sessionStorage.setItem("syncLoadError", syncLoadErrorCounter + 1)
 				
 				this.syncLoadError = typeof navigator.brave === "undefined"
-					? `BTRoblox failed to initialize properly for an unknown reason.\nSome features may not work properly for the time being.`
-					: `BTRoblox is currently experiencing issues on the Brave browser.\nSome features may not work properly for the time being.`
+					? `BETRoblox failed to initialize properly for an unknown reason.\nSome features may not work properly for the time being.`
+					: `BETRoblox is currently experiencing issues on the Brave browser.\nSome features may not work properly for the time being.`
 				
 				dataPayload = await new Promise(resolve => backgroundScript.send("getSharedData", data => resolve(data)))
 			}
