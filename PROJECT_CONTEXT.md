@@ -85,7 +85,7 @@ Phase one covers catalog browsing, search/filtering, item details, previews, ava
 ## Constraints and assumptions
 - The local workspace had no existing source files or Git metadata when scoped.
 - The extension targets desktop Chromium Roblox web pages and relies on the user's existing Roblox session for account actions.
-- Non-commercial intent does not itself grant copyright or reuse permission. Attribution, license compatibility, or permission must be resolved before copying or redistributing upstream code.
+- Preserve upstream attribution when reusing the BTRoblox and ReBTRoblox code lineage.
 - Roblox APIs, DOM structure, page behavior, and extension policies may change independently of this project.
 
 ## Data and integrations
@@ -119,7 +119,7 @@ Phase one covers catalog browsing, search/filtering, item details, previews, ava
 ## Documentation expected to change
 - `PROJECT_CONTEXT.md` (this scope artifact).
 - A README covering local installation, supported pages, and limitations.
-- Attribution/license or permission notices before any public redistribution.
+- Preserve upstream attribution in public distributions.
 - A phase-one manual test checklist and changelog.
 
 ## Suggested branch name
