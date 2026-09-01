@@ -1,7 +1,33 @@
 "use strict"
 
-document.addEventListener("btroblox/init", ev => {
-	const [settings, IS_DEV_MODE, selectedRobuxToCashOption] = ev.detail
+// Keep the last settings in the page world so hooks that must be installed at
+// document_start can use them before the isolated content script finishes its
+// asynchronous settings load.
+const SETTINGS_CACHE_KEY = "BTRoblox:pageSettings"
+
+const readCachedSettings = () => {
+	try {
+		const json = localStorage.getItem(SETTINGS_CACHE_KEY)
+		return json ? JSON.parse(json) : null
+	} catch(ex) {
+		return null
+	}
+}
+
+const writeCachedSettings = value => {
+	try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(value)) }
+	catch(ex) {}
+}
+
+let pageSettings = readCachedSettings() ?? {}
+let IS_DEV_MODE = false
+let selectedRobuxToCashOption = null
+let applySettings
+
+const startInject = () => {
+	const settings = new Proxy({}, {
+		get: (_target, key) => pageSettings?.[key]
+	})
 	
 	const BTRoblox = {}
 	let currentPage
@@ -1357,7 +1383,7 @@ document.addEventListener("btroblox/init", ev => {
 					hijackFunction(AvatarAccoutrementService, "removeAssetFromAvatar", (target, thisArg, args) => {
 						if(args[0] === "btrGetWearingAssets") {
 							wearingAssets = args[1]
-							throw "BTRoblox: abort (this should never be visible)"
+							throw "BETRoblox: abort (this should never be visible)"
 						}
 						
 						return target.apply(thisArg, args)
@@ -1934,41 +1960,54 @@ document.addEventListener("btroblox/init", ev => {
 		"removeAccessoryLimits": () => {
 			const accessoryAssetTypeIds = [8, 41, 42, 43, 44, 45, 46, 47, 57, 58]
 			const layeredAssetTypeIds = [64, 65, 66, 67, 68, 69, 70, 71, 72]
-			
-			const addAssetToAvatar = (target, thisArg, args) => {
-				const result = target.apply(thisArg, args)
+
+			// Roblox now keeps the avatar rules module private inside the avatar
+			// bundle. Hook its defineProperty getters before the bundle can read them,
+			// while retaining the global hooks for older pages.
+			const LIMIT_KEY = "getAdvancedAccessoryLimit"
+			const LAYERED_KEY = "maxNumberOfLayeredClothingItems"
+			const TYPE_KEY = "getAssetTypeById"
+			const ADD_KEY = "addAssetToAvatar"
+			const RAISED_LIMIT = 100
+
+			// This hook is installed before settings are delivered. Read the current
+			// value on every call so toggling the option still works without reload.
+			const bypassEnabled = () => settings.avatar?.removeAccessoryLimits !== false
+			const layeredBypassEnabled = () => settings.avatar?.removeLayeredLimits !== false
+			const isBypassed = assetTypeId => bypassEnabled() && (
+				accessoryAssetTypeIds.includes(+assetTypeId) ||
+				layeredAssetTypeIds.includes(+assetTypeId)
+			)
+
+			const keepDroppedAssets = original => function(...args) {
+				const result = original.apply(this, args)
+
+				if(!bypassEnabled()) {
+					return result
+				}
+
 				const assets = [args[0], ...args[1]]
-				
 				let accessoriesLeft = 10
 				let layeredLeft = 10
-				
+
 				for(let i = 0; i < assets.length; i++) {
 					const asset = assets[i]
 					const assetTypeId = asset?.assetType?.id
-					
 					const isAccessory = accessoryAssetTypeIds.includes(assetTypeId)
 					const isLayered = layeredAssetTypeIds.includes(assetTypeId) || assetTypeId === 41
-					
 					let valid = true
-					
+
 					if(isAccessory || isLayered) {
-						if(isAccessory && accessoriesLeft <= 0) {
+						if(isAccessory && accessoriesLeft <= 0) { valid = false }
+						if(isLayered && layeredLeft <= 0) { valid = false }
+
+						if(!layeredBypassEnabled() && layeredAssetTypeIds.includes(assetTypeId) && !result.includes(asset)) {
 							valid = false
-						}
-						
-						if(isLayered && layeredLeft <= 0) {
-							valid = false
-						}
-						
-						if(!settings.avatar.removeLayeredLimits && layeredAssetTypeIds.includes(assetTypeId)) {
-							if(!result.includes(asset)) {
-								valid = false
-							}
 						}
 					} else {
 						valid = result.includes(asset)
 					}
-					
+
 					if(valid) {
 						if(isAccessory) { accessoriesLeft-- }
 						if(isLayered) { layeredLeft-- }
@@ -1976,33 +2015,91 @@ document.addEventListener("btroblox/init", ev => {
 						assets.splice(i--, 1)
 					}
 				}
-				
+
 				return assets
 			}
-			
-			hijackFunction(Object, "defineProperty", (target, thisArg, args) => {
-				try {
-					const [obj, key, prop] = args
-					
-					if(key === "addAssetToAvatar" && obj?.__esModule && typeof prop?.get === "function") {
-						args[2] = { enumerable: true, value: new Proxy(prop.get(obj, key, obj), { apply: addAssetToAvatar }) }
+
+			const replaceValue = (key, original) => {
+				if(key === ADD_KEY) {
+					return keepDroppedAssets(original)
+				}
+
+				if(key === LAYERED_KEY) {
+					return layeredBypassEnabled() ? RAISED_LIMIT : original
+				}
+
+				if(key === TYPE_KEY) {
+					return assetTypeId => {
+						const assetType = original(assetTypeId)
+
+						if(assetType && isBypassed(assetType.id ?? assetTypeId) && assetType.maxNumber < RAISED_LIMIT) {
+							assetType.maxNumber = RAISED_LIMIT
+						}
+
+						return assetType
 					}
-				} catch {}
-				
+				}
+
+				return assetTypeId => isBypassed(assetTypeId) ? undefined : original(assetTypeId)
+			}
+
+			hijackFunction(Object, "defineProperty", (target, thisArg, args) => {
+				const key = args[1]
+
+				if((key === LIMIT_KEY || key === LAYERED_KEY || key === TYPE_KEY || key === ADD_KEY) && typeof args[2]?.get === "function") {
+					const descriptor = args[2]
+					const readOriginal = descriptor.get
+					let replacement
+					let resolved = false
+
+					args[2] = {
+						...descriptor,
+						get() {
+							if(!resolved) {
+								resolved = true
+								replacement = replaceValue(key, readOriginal.call(this))
+							}
+
+							return replacement
+						}
+					}
+
+					const result = target.apply(thisArg, args)
+
+					if(key === TYPE_KEY) {
+						const namespace = args[0]
+
+						setTimeout(() => {
+							try {
+								const getAssetType = namespace[TYPE_KEY]
+								for(const assetTypeId of [...accessoryAssetTypeIds, ...layeredAssetTypeIds]) {
+									getAssetType(assetTypeId)
+								}
+							} catch(ex) {
+								console.error(ex)
+							}
+						}, 0)
+					}
+
+					return result
+				}
+
 				return target.apply(thisArg, args)
 			})
-			
+
 			onSet(window, "Roblox", Roblox => {
 				onSet(Roblox, "AvatarAccoutrementService", AvatarAccoutrementService => {
 					hijackFunction(AvatarAccoutrementService, "getAdvancedAccessoryLimit", (target, thisArg, args) => {
-						if(accessoryAssetTypeIds.includes(+args[0]) || layeredAssetTypeIds.includes(+args[0])) {
+						if(bypassEnabled() && (accessoryAssetTypeIds.includes(+args[0]) || layeredAssetTypeIds.includes(+args[0]))) {
 							return
 						}
-						
+
 						return target.apply(thisArg, args)
 					})
 					
-					hijackFunction(AvatarAccoutrementService, "addAssetToAvatar", addAssetToAvatar)
+					hijackFunction(AvatarAccoutrementService, "addAssetToAvatar", (target, thisArg, args) => {
+						return keepDroppedAssets(target).apply(thisArg, args)
+					})
 				})
 			})
 		},
@@ -3514,17 +3611,96 @@ document.addEventListener("btroblox/init", ev => {
 		}
 		// Stop inserting injected functions here
 	}
+
+	// Hook installation is idempotent. Page-world hooks are eager because Roblox
+	// can render a dynamic bundle before the content script has delivered the
+	// first settings object; the cache supplies the last known feature gates.
+	const EAGER_HOOKS = [
+		["avatar", "avatar.enabled"],
+		["assetRefinement", "avatar.enabled", "avatar.assetRefinement"],
+		["fullRangeBodyColors", "avatar.enabled", "avatar.fullRangeBodyColors"],
+		["showOwnedAssets", "catalog.enabled", "catalog.showOwnedAssets"],
+		["initReactRobuxToCash", "general.robuxToUSDRate"],
+		["addBTRSettings"],
+		["cacheRobuxAmount", "general.cacheRobuxAmount"],
+		["higherRobuxPrecision", "general.higherRobuxPrecision"],
+		["hideFriendActivity", "home.hideFriendActivity"],
+		["hijackAuth"],
+		["webpackHook", "create.enabled"],
+		["removeAccessoryLimits", "avatar.removeAccessoryLimits"],
+		["createAddBTRSettings", "create.enabled"],
+		["createAssetOptions", "create.enabled", "create.assetOptions"],
+		["createDownloadVersion", "create.enabled", "create.downloadVersion"],
+		["gamedetails", "gamedetails.enabled"],
+		["groupsModifyLayout", "groups.enabled", "groups.modifyLayout"],
+		["showRecommendationPlayerCount", "home.showRecommendationPlayerCount"],
+		["instantGameHoverAction", "home.instantGameHoverAction"],
+		["inventoryTools", "inventory.enabled", "inventory.inventoryTools"],
+		["itemdetails", "itemdetails.enabled"],
+		["money", "general.robuxToUSDRate"],
+		["profile", "profile.enabled"],
+		["adblock.js", "general.hideAds"],
+		["fastsearch", "general.fastSearch"],
+		["navigation", "navigation.enabled"]
+	]
+	const eagerHookNames = new Set(EAGER_HOOKS.map(([name]) => name))
+	const registered = new Set()
+
+	const isSettingOn = path => {
+		const [group, key] = path.split(".")
+		const value = pageSettings?.[group]?.[key]
+		return value !== false && value !== "none"
+	}
+
+	const callInjected = (name, args = []) => {
+		if(eagerHookNames.has(name)) {
+			if(registered.has(name)) { return }
+			registered.add(name)
+		}
+
+		try {
+			injectedFunctions[name](...args)
+		} catch(ex) {
+			console.error(`[btr] injected function ${name} failed`, ex)
+		}
+	}
+
+	contentScript.listen("call", (name, args) => callInjected(name, args))
+
+	for(const [name, ...gates] of EAGER_HOOKS) {
+		if(gates.every(isSettingOn)) {
+			callInjected(name)
+		}
+	}
+
+	applySettings = (newSettings, isDevMode, cashOption) => {
+		pageSettings = newSettings || {}
+		writeCachedSettings(pageSettings)
+		IS_DEV_MODE = isDevMode
+		selectedRobuxToCashOption = cashOption
+		RobuxToCash.selectedRobuxToCashOption = cashOption
+	}
 	
-	contentScript.listen("call", (name, args) => {
-		injectedFunctions[name](...args)
+	contentScript.listen("updateSettings", (newSettings, cashOption) => {
+		pageSettings = newSettings || {}
+		writeCachedSettings(pageSettings)
+		selectedRobuxToCashOption = cashOption
+		RobuxToCash.selectedRobuxToCashOption = cashOption
 	})
 	
 	//
-	
+
 	contentScript.listen("setCurrentPage", _currentPage => {
 		currentPage = _currentPage
 	})
-	
+
 	reactHook.init()
 	angularHook.init()
+}
+
+startInject()
+
+document.addEventListener("btroblox/init", ev => {
+	const [settings, isDevMode, cashOption] = ev.detail
+	applySettings?.(settings, isDevMode, cashOption)
 }, { once: true })

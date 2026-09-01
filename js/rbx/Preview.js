@@ -460,45 +460,45 @@ class ItemPreviewer extends AvatarPreviewer {
 		this.bundleAlts = {}
 		this.bundleAnims = html`
 		<div class=btr-bundle-animations style=display:none>
-			<div class="btr-bundle-btn btn-control-xs" data-anim=run disabled><div class=btr-anim-icon-run></div></div>
-			<div class="btr-bundle-btn btn-control-xs" data-anim=walk disabled><div class=btr-anim-icon-walk></div></div>
-			<div class="btr-bundle-btn btn-control-xs" data-anim=fall disabled><div class=btr-anim-icon-fall></div></div>
-			<div class="btr-bundle-btn btn-control-xs" data-anim=jump disabled><div class=btr-anim-icon-jump></div></div>
-			<div class="btr-bundle-btn btn-control-xs" data-anim=idle disabled><div class=btr-anim-icon-idle></div></div>
-			<div class="btr-bundle-btn btn-control-xs" data-anim=swim disabled><div class=btr-anim-icon-swim></div></div>
-			<div class="btr-bundle-btn btn-control-xs" data-anim=climb disabled><div class=btr-anim-icon-climb></div></div>
+			<button type=button class="btr-bundle-btn btn-control-xs" data-anim=run disabled aria-label="Play run animation" title="Play run animation"><div class=btr-anim-icon-run></div></button>
+			<button type=button class="btr-bundle-btn btn-control-xs" data-anim=walk disabled aria-label="Play walk animation" title="Play walk animation"><div class=btr-anim-icon-walk></div></button>
+			<button type=button class="btr-bundle-btn btn-control-xs" data-anim=fall disabled aria-label="Play fall animation" title="Play fall animation"><div class=btr-anim-icon-fall></div></button>
+			<button type=button class="btr-bundle-btn btn-control-xs" data-anim=jump disabled aria-label="Play jump animation" title="Play jump animation"><div class=btr-anim-icon-jump></div></button>
+			<button type=button class="btr-bundle-btn btn-control-xs" data-anim=idle disabled aria-label="Play idle animation" title="Play idle animation"><div class=btr-anim-icon-idle></div></button>
+			<button type=button class="btr-bundle-btn btn-control-xs" data-anim=swim disabled aria-label="Play swim animation" title="Play swim animation"><div class=btr-anim-icon-swim></div></button>
+			<button type=button class="btr-bundle-btn btn-control-xs" data-anim=climb disabled aria-label="Play climb animation" title="Play climb animation"><div class=btr-anim-icon-climb></div></button>
 		</div>`
 		
 		this.animNameLabel = html`<div class=btr-animation-name></div>`
 
 		const buttons = this.buttons = html`
 		<div class=btr-thumb-btn-container>
-			<div class="btr-thumb-btn btn-control-xs btr-hats-btn"><span class=btr-icon-hat></span></div>
-			<div class="btr-thumb-btn btn-control-xs btr-body-btn checked"><span class=btr-icon-body></span></div>
-			<div class="btr-thumb-btn btn-control-xs btr-preview-btn"><span class=btr-icon-preview></span></div>
+			<button type=button class="btr-thumb-btn btn-control-xs btr-hats-btn" aria-pressed="true" aria-label="Toggle accessories" title="Toggle accessories"><span class=btr-icon-hat></span></button>
+			<button type=button class="btr-thumb-btn btn-control-xs btr-body-btn checked" aria-haspopup="true" aria-label="Show avatar body" title="Show avatar body"><span class=btr-icon-body></span></button>
+			<button type=button class="btr-thumb-btn btn-control-xs btr-preview-btn" aria-pressed="false" aria-label="Toggle 3D preview" title="Toggle 3D preview"><span class=btr-icon-preview></span></button>
 			<div class="btr-thumb-popup btr-body-popup">
 
 				<div class=btr-body-outfits>
 					<label class=btr-outfit-header>Outfits</label>
 
-					<div class="btr-body-outfit-btn selected" data-outfit=current>
+					<button type=button class="btr-body-outfit-btn selected" data-outfit=current aria-pressed="true" aria-label="Preview current outfit">
 						<div class=btr-body-outfit-icon>
-							<img src="">
+							<img src="" alt="">
 						</div>
 						<span class=btr-body-outfit-title>Current</span>
-					</div>
-					<div class=btr-body-outfit-btn data-outfit=bundle style=display:none>
+					</button>
+					<button type=button class=btr-body-outfit-btn data-outfit=bundle style=display:none aria-pressed="false" aria-label="Preview bundle outfit">
 						<div class=btr-body-outfit-icon>
-							<img src="https://tr.rbxcdn.com/0291e3569377d17f1ea852a773ad56a5/110/110/Decal/Png">
+							<img src="https://tr.rbxcdn.com/0291e3569377d17f1ea852a773ad56a5/110/110/Decal/Png" alt="">
 						</div>
 						<span class=btr-body-outfit-title>Bundle</span>
-					</div>
-					<div class=btr-body-outfit-btn data-outfit=default>
+					</button>
+					<button type=button class="btr-body-outfit-btn" data-outfit=default aria-pressed="false" aria-label="Preview default outfit">
 						<div class=btr-body-outfit-icon>
-							<img src="https://tr.rbxcdn.com/cd6c66bb06aa97e00e4d79169e6d74e5/150/150/Avatar/Png">
+							<img src="https://tr.rbxcdn.com/cd6c66bb06aa97e00e4d79169e6d74e5/150/150/Avatar/Png" alt="">
 						</div>
 						<span class=btr-body-outfit-title>Default</span>
-					</div>
+					</button>
 				</div>
 
 				<div>
@@ -532,11 +532,16 @@ class ItemPreviewer extends AvatarPreviewer {
 				</div>
 			</div>
 		</div>`
-		
+
 		loggedInUserPromise.then(userId => {
+			if(!userId) { return }
+
 			RobloxApi.thumbnails.getAvatarThumbnails([userId]).then(json => {
-				buttons.$find(`.btr-body-outfit-btn[data-outfit="current"] img`).src = json.data[0].imageUrl
-			})
+				const imageUrl = json?.data?.[0]?.imageUrl
+				if(imageUrl) {
+					buttons.$find(`.btr-body-outfit-btn[data-outfit="current"] img`).src = imageUrl
+				}
+			}).catch(ex => console.warn("Unable to load current outfit thumbnail", ex))
 		})
 		
 		container.append(this.dropdown, this.typeSwitch, this.bundleAnims, this.animNameLabel, this.buttons)
@@ -644,6 +649,7 @@ class ItemPreviewer extends AvatarPreviewer {
 		
 		this.on("enabled", () => {
 			previewBtn.classList.add("checked")
+			previewBtn.setAttribute("aria-pressed", "true")
 			this.parent?.classList.add("btr-preview-active")
 			this.parent?.classList.remove("btr-preview-inactive")
 			
@@ -652,6 +658,7 @@ class ItemPreviewer extends AvatarPreviewer {
 
 		this.on("disabled", () => {
 			previewBtn.classList.remove("checked")
+			previewBtn.setAttribute("aria-pressed", "false")
 			this.parent?.classList.remove("btr-preview-active")
 			this.parent?.classList.add("btr-preview-inactive")
 		})
@@ -725,11 +732,16 @@ class ItemPreviewer extends AvatarPreviewer {
 
 		const button = this.buttons.$find(`.btr-body-outfit-btn[data-outfit="${target}"]`)
 		if(button) { button.classList.add("selected") }
+
+		for(const outfitButton of this.buttons.$findAll(".btr-body-outfit-btn")) {
+			outfitButton.setAttribute("aria-pressed", String(outfitButton === button))
+		}
 	}
 	
 	setOutfitAccessoriesVisible(bool) {
 		super.setOutfitAccessoriesVisible(bool)
 		this.hatsBtn.classList.toggle("checked", this.outfitAccessoriesVisible)
+		this.hatsBtn.setAttribute("aria-pressed", String(this.outfitAccessoriesVisible))
 	}
 	
 	setParent(parent) {
@@ -916,7 +928,7 @@ class ItemPreviewer extends AvatarPreviewer {
 				root.prepend(alts.cont)
 			}
 
-			btn = html`<div class="btr-bundle-btn-alt btn-control-xs">${anim.altText}</div>`
+			btn = html`<button type=button class="btr-bundle-btn-alt btn-control-xs">${anim.altText}</button>`
 			alts.cont.prepend(btn)
 			
 			if(btn.nextElementSibling?.textContent === "NONE") { // keep NONE as topmost

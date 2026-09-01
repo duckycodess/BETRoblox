@@ -82,11 +82,32 @@ const RBXAvatarRigs = (() => {
 				const path = RBXAvatar.LocalAssets["res/previewer/characterModels.rbxm"]
 
 				AssetCache.loadModel(true, path, model => {
-					this.R6Tree = RecurseTree(model.find(x => x.Name === "R6"))
-					this.R15Tree = RecurseTree(model.find(x => x.Name === "R15"))
+					if(!model || typeof model.find !== "function") {
+						// Asset delivery can be unavailable to logged-out users. Resolve
+						// without a rig so the item page remains usable instead of throwing.
+						resolve(false)
+						return
+					}
+
+					const r6Model = model.find(x => x.Name === "R6")
+					const r15Model = model.find(x => x.Name === "R15")
+					if(!r6Model || !r15Model) {
+						resolve(false)
+						return
+					}
+
+					const r6Tree = RecurseTree(r6Model)
+					const r15Tree = RecurseTree(r15Model)
+					if(!r6Tree || !r15Tree) {
+						resolve(false)
+						return
+					}
+
+					this.R6Tree = r6Tree
+					this.R15Tree = r15Tree
 
 					this.loaded = true
-					resolve()
+					resolve(true)
 				})
 			})
 		}

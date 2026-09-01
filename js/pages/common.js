@@ -932,13 +932,14 @@ const initExplorer = async (assetId, assetTypeId, isBundle) => {
 	
 	const btnCont = html`
 	<div class="btr-explorer-button-container btr-temp-fixed">
-		<a class=btr-explorer-button>
+		<a class=btr-explorer-button href="#" role="button" aria-label="Inspect asset contents" title="Inspect asset contents">
 			<span class=btr-icon-explorer></span>
 		</a>
 		<div class=btr-explorer-popover>
 			<div class=btr-explorer-parent></div>
 		</div>
 	</div>`
+	btnCont.$on("click", ".btr-explorer-button", event => event.preventDefault())
 
 	loadOptionalFeature("explorer").then(() => {
 		const explorer = new Explorer()
@@ -947,7 +948,8 @@ const initExplorer = async (assetId, assetTypeId, isBundle) => {
 		const popover = btnCont.$find(".btr-explorer-popover")
 		popover.$find(".btr-explorer-parent").replaceWith(explorer.element)
 		
-		btnCont.$on("click", ".btr-explorer-button", () => {
+		btnCont.$on("click", ".btr-explorer-button", event => {
+			event.preventDefault()
 			if(popover.classList.contains("visible")) {
 				popover.classList.remove("visible")
 				explorer.setActive(false)
@@ -1025,7 +1027,7 @@ const initDownloadButton = async (assetId, assetTypeId, isBundle) => {
 	
 	const btnCont = html`
 	<div class=btr-download-button-container>
-		<a class=btr-download-button>
+		<a class=btr-download-button href="#" role="button" aria-label="Download asset" title="Download asset">
 			<span class=btr-icon-download></span>
 		</a>
 	</div>`
@@ -1225,7 +1227,7 @@ const initContentButton = async (assetId, assetTypeId) => {
 	
 	const btnCont = html`
 	<div class=btr-content-button-container>
-		<a class="btr-content-button disabled" href="#">
+		<a class="btr-content-button disabled" href="#" role="button" aria-disabled="true" tabindex="-1" aria-label="Open asset content" title="Open asset content">
 			<span class=btr-icon-content></span>
 		</a>
 	</div>`
@@ -1235,8 +1237,11 @@ const initContentButton = async (assetId, assetTypeId) => {
 		const contentId = AssetCache.getAssetIdFromUrl(contentUrl)
 		
 		if(contentId) {
-			btnCont.$find(">a").href = `https://www.roblox.com/library/${contentId}/` // marketplace needs full domain
-			btnCont.$find(">a").classList.remove("disabled")
+			const contentButton = btnCont.$find(">a")
+			contentButton.href = `https://www.roblox.com/library/${contentId}/` // marketplace needs full domain
+			contentButton.classList.remove("disabled")
+			contentButton.removeAttribute("aria-disabled")
+			contentButton.removeAttribute("tabindex")
 		}
 	})
 	
@@ -1460,81 +1465,9 @@ pageInit.www = () => {
 	}
 	
 	if(SETTINGS.get("avatar.removeAccessoryLimits")) {
-		injectScript.call("removeAccessoryLimits", () => {
-			const accessoryAssetTypeIds = [8, 41, 42, 43, 44, 45, 46, 47, 57, 58]
-			const layeredAssetTypeIds = [64, 65, 66, 67, 68, 69, 70, 71, 72]
-			
-			const addAssetToAvatar = (target, thisArg, args) => {
-				const result = target.apply(thisArg, args)
-				const assets = [args[0], ...args[1]]
-				
-				let accessoriesLeft = 10
-				let layeredLeft = 10
-				
-				for(let i = 0; i < assets.length; i++) {
-					const asset = assets[i]
-					const assetTypeId = asset?.assetType?.id
-					
-					const isAccessory = accessoryAssetTypeIds.includes(assetTypeId)
-					const isLayered = layeredAssetTypeIds.includes(assetTypeId) || assetTypeId === 41
-					
-					let valid = true
-					
-					if(isAccessory || isLayered) {
-						if(isAccessory && accessoriesLeft <= 0) {
-							valid = false
-						}
-						
-						if(isLayered && layeredLeft <= 0) {
-							valid = false
-						}
-						
-						if(!settings.avatar.removeLayeredLimits && layeredAssetTypeIds.includes(assetTypeId)) {
-							if(!result.includes(asset)) {
-								valid = false
-							}
-						}
-					} else {
-						valid = result.includes(asset)
-					}
-					
-					if(valid) {
-						if(isAccessory) { accessoriesLeft-- }
-						if(isLayered) { layeredLeft-- }
-					} else {
-						assets.splice(i--, 1)
-					}
-				}
-				
-				return assets
-			}
-			
-			hijackFunction(Object, "defineProperty", (target, thisArg, args) => {
-				try {
-					const [obj, key, prop] = args
-					
-					if(key === "addAssetToAvatar" && obj?.__esModule && typeof prop?.get === "function") {
-						args[2] = { enumerable: true, value: new Proxy(prop.get(obj, key, obj), { apply: addAssetToAvatar }) }
-					}
-				} catch {}
-				
-				return target.apply(thisArg, args)
-			})
-			
-			onSet(window, "Roblox", Roblox => {
-				onSet(Roblox, "AvatarAccoutrementService", AvatarAccoutrementService => {
-					hijackFunction(AvatarAccoutrementService, "getAdvancedAccessoryLimit", (target, thisArg, args) => {
-						if(accessoryAssetTypeIds.includes(+args[0]) || layeredAssetTypeIds.includes(+args[0])) {
-							return
-						}
-						
-						return target.apply(thisArg, args)
-					})
-					
-					hijackFunction(AvatarAccoutrementService, "addAssetToAvatar", addAssetToAvatar)
-				})
-			})
-		})
+		// The implementation lives in the document_start page-world hook. Keeping
+		// this call argument-free avoids maintaining a stale second copy here.
+		injectScript.call("removeAccessoryLimits")
 	}
 	
 	// Chat
