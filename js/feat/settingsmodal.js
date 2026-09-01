@@ -109,9 +109,9 @@ const SettingsModal = {
 		<div class=btr-settings-modal>
 			<div class=btr-settings>
 				<div class=btr-settings-header>
-					<div class=btr-settings-header-title>BTRoblox</div>
+					<div class=btr-settings-header-title>BETRoblox</div>
 					<div style="flex: 1 1 auto"></div>
-					<div class="btr-settings-header-close btr-settings-toggle">✖</div>
+					<button type=button class="btr-settings-header-close btr-settings-toggle" aria-label="Close settings"></button>
 				</div>
 				<div class="btr-settings-content selected" id=btr-settings-main data-name=main>
 					<group label=General path=general>

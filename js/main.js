@@ -2,6 +2,126 @@
 
 let currentPage
 
+// The phase-one shell is deliberately small: it orients the player, then gets
+// out of the way so Roblox still owns the familiar task surface below it.
+const DUCKY_PAGE_LABELS = {
+	catalog: "Marketplace",
+	itemdetails: "Item details",
+	avatar: "Avatar studio"
+}
+
+const DUCKY_PAGE_NAMES = new Set(Object.keys(DUCKY_PAGE_LABELS))
+const DUCKY_UI_CONTRACT = [
+	"DUCKY UI CONTRACT",
+	"THESIS: Roblox's useful controls should read like a workbench: predictable routes, visible state, and actions at the edge of the task.",
+	"OWN-WORLD: cool slate canvas, white work surfaces, electric-blue navigation, coral commit actions, compact labels, no decorative noise.",
+	"STORY: arrive -> orient -> refine -> act -> verify.",
+	"FIRST VIEWPORT: current page, primary route, and native task are clear before the content begins.",
+	"FORM: a route shell sits above the page; search and filters stay grouped; cards recede behind readable metadata.",
+	"ACCESSIBILITY: keyboard focus, contrast, reduced motion, and non-color state cues are first-class.",
+	"FINISH: focus survives every transition; empty, loading, and disabled states remain legible.",
+	"DIRECTION: catalog-workbench / candidate 7 / seed 68939259"
+].join("\n")
+
+let duckyShell
+let duckyShellObserver
+
+const installDuckyContract = () => {
+	if(!document.body || document.body.dataset.btrDuckyContract) { return }
+
+	document.body.dataset.btrDuckyContract = "installed"
+	document.body.prepend(document.createComment(DUCKY_UI_CONTRACT))
+}
+
+const createDuckyShell = container => {
+	const content = container.querySelector("#content")
+	if(!content) { return null }
+
+	const shell = document.createElement("section")
+	shell.id = "btr-ducky-shell"
+	shell.className = "btr-ducky-shell"
+	shell.setAttribute("aria-label", "BTR workspace")
+	shell.innerHTML = `
+		<a class="btr-ducky-brand" href="/catalog" aria-label="BTR workspace home">
+			<span class="btr-ducky-brand-mark" aria-hidden="true"><span></span></span>
+			<span class="btr-ducky-brand-copy"><strong>BTR</strong><small>WORKSPACE</small></span>
+		</a>
+		<div class="btr-ducky-current">
+			<span class="btr-ducky-kicker">CURRENT VIEW</span>
+			<strong data-btr-ducky-current-label>Marketplace</strong>
+		</div>
+		<nav class="btr-ducky-nav" aria-label="BTR workspace routes">
+			<a data-btr-ducky-route="catalog" href="/catalog">Marketplace</a>
+			<a data-btr-ducky-route="avatar" href="/my/avatar">Avatar studio</a>
+		</nav>
+		<button class="btr-ducky-settings" data-btr-ducky-settings type="button" aria-label="Open BETRoblox settings">
+			<span class="btr-ducky-settings-icon" aria-hidden="true"></span>
+			<span>Settings</span>
+		</button>
+	`
+
+	const settingsButton = shell.querySelector("[data-btr-ducky-settings]")
+	settingsButton.addEventListener("click", () => {
+		const nativeToggle = document.querySelector(".btr-settings-toggle")
+		if(nativeToggle) {
+			nativeToggle.click()
+			return
+		}
+
+		const url = new URL(location.href)
+		url.searchParams.set("btr_settings_open", "true")
+		location.assign(url.toString())
+	})
+
+	content.before(shell)
+	return shell
+}
+
+const updateDuckyShell = page => {
+	const root = document.documentElement
+	const isPhaseOnePage = DUCKY_PAGE_NAMES.has(page?.name)
+	root.classList.toggle("btr-ducky-ui", isPhaseOnePage)
+	root.dataset.btrPage = page?.name || ""
+
+	if(!isPhaseOnePage) {
+		duckyShell?.remove()
+		duckyShell = null
+		duckyShellObserver?.disconnect()
+		duckyShellObserver = null
+		return
+	}
+
+	installDuckyContract()
+	const container = document.querySelector("#container-main")
+	const content = container?.querySelector("#content")
+	if(!container || !content) {
+		if(!duckyShellObserver && document.documentElement) {
+			duckyShellObserver = new MutationObserver(() => updateDuckyShell(currentPage))
+			duckyShellObserver.observe(document.documentElement, { childList: true, subtree: true })
+		}
+		return
+	}
+
+	duckyShellObserver?.disconnect()
+	duckyShellObserver = null
+	duckyShell = container.querySelector("#btr-ducky-shell") || createDuckyShell(container)
+	if(!duckyShell) { return }
+
+	duckyShell.dataset.view = page.name
+	duckyShell.querySelector("[data-btr-ducky-current-label]").textContent = DUCKY_PAGE_LABELS[page.name]
+	const activeRoute = page.name === "itemdetails" ? "catalog" : page.name
+
+	for(const link of duckyShell.querySelectorAll("[data-btr-ducky-route]")) {
+		const active = link.dataset.btrDuckyRoute === activeRoute
+		link.classList.toggle("active", active)
+		if(active) {
+			link.setAttribute("aria-current", "page")
+		} else {
+			link.removeAttribute("aria-current")
+		}
+	}
+}
+
 //
 
 const PAGE_INFO = {
@@ -12,7 +132,7 @@ const PAGE_INFO = {
 	},
 	catalog: {
 		matches: ["^/catalog/?$"],
-		js: ["pages/avatar.js"],
+		js: ["pages/catalog.js"],
 		css: ["catalog.css"]
 	},
 	friends: {
@@ -298,14 +418,21 @@ const updatePageCSS = () => {
 	}
 	
 	const theme = SETTINGS.get("general.theme")
-	
+
 	if(theme !== "default") {
 		cssFiles.push(...cssFiles.map(path => `${theme}/${path}`))
 	}
-	
+
+	// Loaded last so the phase-one shell and page treatment remain coherent
+	// across the legacy theme files and page-specific styles.
+	cssFiles.push("ducky.css")
+
+	// Re-append the override sheet when the theme changes; active link sheets
+	// otherwise keep their original order and could place a theme after it.
+	removeCSS("css/ducky.css")
 	insertCSS(...cssFiles.map(path => `css/${path}`))
 	removeCSS(...currentPageCSS.filter(path => !cssFiles.includes(path)).map(path => `css/${path}`))
-	
+
 	currentPageCSS = cssFiles
 }
 
@@ -362,6 +489,7 @@ if(document.contentType === "text/html" && location.protocol !== "blob" && docum
 			
 			currentPage = getCurrentPage()
 			
+			updateDuckyShell(currentPage)
 			injectScript.send("setCurrentPage", currentPage ? { name: currentPage.name, matches: currentPage.matches } : null)
 			updatePageCSS()
 			
@@ -416,6 +544,11 @@ if(document.contentType === "text/html" && location.protocol !== "blob" && docum
 		
 		//
 		
+		// Keep document_start hooks in sync when a local preference changes. Hooks
+		// decide their behavior per call, so this does not require a page reload.
+		SETTINGS.onChange(() => {
+			injectScript.send("updateSettings", SETTINGS.serialize(), RobuxToCash.getSelectedOption())
+		})
 		SETTINGS.onChange("general.theme", () => updatePageCSS())
 	})
 	
@@ -428,7 +561,7 @@ if(document.contentType === "text/html" && location.protocol !== "blob" && docum
 			
 			const alert = html`
 			<div id=btr-permission-banner style="position:fixed;width:100%;height:24px;left:0;top:40px;background:red;color:white;cursor:pointer;z-index:100000;text-align:center;user-select:none;">
-				BTRoblox needs some permissions to work properly. Click here or click the extension button to fix the issue.
+				BETRoblox needs some permissions to work properly. Click here or click the extension button to fix the issue.
 			</div>`
 			
 			document.$watch(">body").$then(body => body.append(alert))
@@ -442,7 +575,7 @@ if(document.contentType === "text/html" && location.protocol !== "blob" && docum
 					})
 				})
 			} else {
-				alert.textContent = `BTRoblox needs some permissions to work properly. Click the extension button to fix the issue.`
+				alert.textContent = `BETRoblox needs some permissions to work properly. Click the extension button to fix the issue.`
 				alert.style.cursor = ""
 			}
 		}
