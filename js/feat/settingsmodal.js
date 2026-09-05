@@ -152,6 +152,12 @@ const SettingsModal = {
 						<checkbox label="Move Favorites to Top" path=favoritesAtTop></checkbox>
 						<checkbox label="Hide Friend Activity" path=hideFriendActivity></checkbox>
 					</group>
+					<group label=Avatar path=avatar toggleable>
+						<checkbox label="Remove Accessory Limits" path=removeAccessoryLimits></checkbox>
+						<checkbox label="Remove Layered Clothing Limits" path=removeLayeredLimits require=removeAccessoryLimits></checkbox>
+						<checkbox label="Full Range Body Colors" path=fullRangeBodyColors></checkbox>
+						<checkbox label="Refine Asset Layout" path=assetRefinement></checkbox>
+					</group>
 					<group label=Profile path=profile toggleable>
 						<checkbox label="Embed Inventory" path=embedInventoryEnabled></checkbox>
 					</group>

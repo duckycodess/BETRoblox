@@ -25,6 +25,9 @@ let selectedRobuxToCashOption = null
 let applySettings
 
 const startInject = () => {
+	const settingsAppliedListeners = []
+	const onSettingsApplied = listener => settingsAppliedListeners.push(listener)
+
 	const settings = new Proxy({}, {
 		get: (_target, key) => pageSettings?.[key]
 	})
@@ -1970,14 +1973,23 @@ const startInject = () => {
 			const ADD_KEY = "addAssetToAvatar"
 			const RAISED_LIMIT = 100
 
+			// How many accessory and layered items addAssetToAvatar keeps after the
+			// original has applied Roblox's category caps. Upstream ReBTRoblox keeps
+			// 10; BETRoblox keeps RAISED_LIMIT to match the documented contract.
+			// Counts this high are not validated against the live avatar editor, so
+			// editor responsiveness belongs in authenticated QA. See
+			// docs/QA_PHASE_ONE.md and docs/ARCHITECTURE.md.
+			const KEEP_LIMIT = RAISED_LIMIT
+
 			// This hook is installed before settings are delivered. Read the current
-			// value on every call so toggling the option still works without reload.
-			const bypassEnabled = () => settings.avatar?.removeAccessoryLimits !== false
-			const layeredBypassEnabled = () => settings.avatar?.removeLayeredLimits !== false
-			const isBypassed = assetTypeId => bypassEnabled() && (
-				accessoryAssetTypeIds.includes(+assetTypeId) ||
-				layeredAssetTypeIds.includes(+assetTypeId)
-			)
+			// values on every call so toggling the options still works without reload.
+			const bypassEnabled = () => settings.avatar?.enabled !== false && settings.avatar?.removeAccessoryLimits !== false
+			const layeredBypassEnabled = () => bypassEnabled() && settings.avatar?.removeLayeredLimits !== false
+			const isBypassed = assetTypeId => {
+				const numericAssetTypeId = +assetTypeId
+				return (bypassEnabled() && accessoryAssetTypeIds.includes(numericAssetTypeId)) ||
+					(layeredBypassEnabled() && layeredAssetTypeIds.includes(numericAssetTypeId))
+			}
 
 			const keepDroppedAssets = original => function(...args) {
 				const result = original.apply(this, args)
@@ -1987,12 +1999,12 @@ const startInject = () => {
 				}
 
 				const assets = [args[0], ...args[1]]
-				let accessoriesLeft = 10
-				let layeredLeft = 10
+				let accessoriesLeft = KEEP_LIMIT
+				let layeredLeft = KEEP_LIMIT
 
 				for(let i = 0; i < assets.length; i++) {
 					const asset = assets[i]
-					const assetTypeId = asset?.assetType?.id
+					const assetTypeId = +asset?.assetType?.id
 					const isAccessory = accessoryAssetTypeIds.includes(assetTypeId)
 					const isLayered = layeredAssetTypeIds.includes(assetTypeId) || assetTypeId === 41
 					let valid = true
@@ -2019,21 +2031,62 @@ const startInject = () => {
 				return assets
 			}
 
+			// Asset-type entry -> the maxNumber and category it had before this hook
+			// raised it. Roblox hands back cached entries and compares them by identity,
+			// so the raise has to happen in place. A strong Map is safe here because the
+			// rules table is a fixed, small set, and holding the entries is what lets a
+			// disable put every one of them back.
+			const originalMaxNumbers = new Map()
+
+			const restoreMaxNumbers = nextSettings => {
+				const accessoryDisabled = nextSettings?.avatar?.enabled === false || nextSettings?.avatar?.removeAccessoryLimits === false
+				const layeredDisabled = accessoryDisabled || nextSettings?.avatar?.removeLayeredLimits === false
+
+				if(!accessoryDisabled && !layeredDisabled) { return }
+
+				for(const [assetType, original] of originalMaxNumbers) {
+					const restore = accessoryDisabled || layeredDisabled && layeredAssetTypeIds.includes(+original.assetTypeId)
+					if(!restore) { continue }
+
+					assetType.maxNumber = original.maxNumber
+					originalMaxNumbers.delete(assetType)
+				}
+			}
+
+			// Apply the restore for both the initial btroblox/init delivery and later
+			// updateSettings events. Passing the new snapshot avoids depending on the
+			// order in which CustomEvent listeners happen to run.
+			onSettingsApplied(restoreMaxNumbers)
+
 			const replaceValue = (key, original) => {
 				if(key === ADD_KEY) {
 					return keepDroppedAssets(original)
-				}
-
-				if(key === LAYERED_KEY) {
-					return layeredBypassEnabled() ? RAISED_LIMIT : original
 				}
 
 				if(key === TYPE_KEY) {
 					return assetTypeId => {
 						const assetType = original(assetTypeId)
 
-						if(assetType && isBypassed(assetType.id ?? assetTypeId) && assetType.maxNumber < RAISED_LIMIT) {
-							assetType.maxNumber = RAISED_LIMIT
+						if(!assetType) {
+							return assetType
+						}
+
+						if(isBypassed(assetType.id ?? assetTypeId)) {
+							if(!originalMaxNumbers.has(assetType)) {
+								originalMaxNumbers.set(assetType, {
+									maxNumber: assetType.maxNumber,
+									assetTypeId: assetType.id ?? assetTypeId
+								})
+							}
+
+							if(assetType.maxNumber < RAISED_LIMIT) {
+								assetType.maxNumber = RAISED_LIMIT
+							}
+						} else if(originalMaxNumbers.has(assetType)) {
+							// Covers a setting update that was applied before this callback
+							// ran, or an initial btroblox/init delivery.
+							assetType.maxNumber = originalMaxNumbers.get(assetType).maxNumber
+							originalMaxNumbers.delete(assetType)
 						}
 
 						return assetType
@@ -2049,6 +2102,7 @@ const startInject = () => {
 				if((key === LIMIT_KEY || key === LAYERED_KEY || key === TYPE_KEY || key === ADD_KEY) && typeof args[2]?.get === "function") {
 					const descriptor = args[2]
 					const readOriginal = descriptor.get
+					let original
 					let replacement
 					let resolved = false
 
@@ -2057,9 +2111,19 @@ const startInject = () => {
 						get() {
 							if(!resolved) {
 								resolved = true
-								replacement = replaceValue(key, readOriginal.call(this))
+								original = readOriginal.call(this)
 							}
 
+							// A plain number, so unlike the other keys it cannot
+							// re-read the setting itself. Recompute on every read or a
+							// live toggle never takes effect.
+							if(key === LAYERED_KEY) {
+								return layeredBypassEnabled() ? RAISED_LIMIT : original
+							}
+
+							// The rest are functions that decide per call, so their
+							// identity can stay stable across toggles.
+							replacement ??= replaceValue(key, original)
 							return replacement
 						}
 					}
@@ -3627,7 +3691,7 @@ const startInject = () => {
 		["hideFriendActivity", "home.hideFriendActivity"],
 		["hijackAuth"],
 		["webpackHook", "create.enabled"],
-		["removeAccessoryLimits", "avatar.removeAccessoryLimits"],
+		["removeAccessoryLimits", "avatar.enabled", "avatar.removeAccessoryLimits"],
 		["createAddBTRSettings", "create.enabled"],
 		["createAssetOptions", "create.enabled", "create.assetOptions"],
 		["createDownloadVersion", "create.enabled", "create.downloadVersion"],
@@ -3673,20 +3737,24 @@ const startInject = () => {
 		}
 	}
 
-	applySettings = (newSettings, isDevMode, cashOption) => {
+	const updatePageSettings = (newSettings, cashOption) => {
 		pageSettings = newSettings || {}
 		writeCachedSettings(pageSettings)
-		IS_DEV_MODE = isDevMode
 		selectedRobuxToCashOption = cashOption
 		RobuxToCash.selectedRobuxToCashOption = cashOption
+
+		for(const listener of settingsAppliedListeners) {
+			try { listener(pageSettings) }
+			catch(ex) { console.error(ex) }
+		}
+	}
+
+	applySettings = (newSettings, isDevMode, cashOption) => {
+		IS_DEV_MODE = isDevMode
+		updatePageSettings(newSettings, cashOption)
 	}
 	
-	contentScript.listen("updateSettings", (newSettings, cashOption) => {
-		pageSettings = newSettings || {}
-		writeCachedSettings(pageSettings)
-		selectedRobuxToCashOption = cashOption
-		RobuxToCash.selectedRobuxToCashOption = cashOption
-	})
+	contentScript.listen("updateSettings", updatePageSettings)
 	
 	//
 
