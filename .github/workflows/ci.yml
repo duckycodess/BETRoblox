@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/roblox-ui-redesign]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same ref makes the running one pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # The extension has no dependencies, runtime or dev, so there is nothing
+      # to install. A clean checkout is expected to run as-is.
+      - name: Assert no dependencies crept in
+        run: |
+          node -e '
+            const pkg = require("./package.json")
+            for (const field of ["dependencies", "devDependencies"]) {
+              const declared = Object.keys(pkg[field] ?? {})
+              if (declared.length) {
+                console.error(`package.json declares ${field}: ${declared.join(", ")}`)
+                process.exit(1)
+              }
+            }
+            console.log("no dependencies declared")
+          '
+
+      - name: Validate manifests and asset registries
+        run: node tools/validate-extension.js
+
+      # Built in place: the generated check resolves every path against the
+      # directory a browser would load, so that directory needs the assets too.
+      # manifest.json and its sidecar are gitignored, so this leaves no residue.
+      - name: Verify the generated manifest for each target
+        run: |
+          node tools/build-manifest.js --target=chrome --force
+          node tools/build-manifest.js --target=firefox --force
+          node tools/build-manifest.js --target=chrome --force
+
+      - name: Run the page-world hook tests
+        run: node --test "test/**/*.test.js"
+
+      - name: Assert the build left the worktree clean
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Build or tests modified tracked files:"
+            git status --porcelain
+            exit 1
+          fi

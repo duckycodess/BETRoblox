@@ -1,2 +1,8 @@
 # Local Chromium unpacked-extension manifest
 /manifest.json
+
+# Provenance sidecar written next to the generated manifest
+/.manifest-build.json
+
+# Node tooling has no dependencies, but keep an accidental install out of Git
+node_modules/

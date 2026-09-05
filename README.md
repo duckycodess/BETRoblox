@@ -8,15 +8,60 @@ BETRoblox is a Chromium Manifest V3 extension for Roblox. It keeps familiar Robl
 Local development
 -----------------
 
-Chrome expects a file named `manifest.json`. For a local unpacked test, copy the Chromium manifest and load the repository directory:
+Requires Node 20 or newer. There are **no dependencies to install** — a clean
+checkout runs as-is.
 
 ```sh
-cp manifest.chrome.json manifest.json
+node tools/build-manifest.js
 ```
 
-Then open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select this directory. The copied `manifest.json` is intentionally ignored by Git; keep it local.
+That validates the manifests and every asset they reference, then writes the
+`manifest.json` Chromium expects. Then open `chrome://extensions`, enable
+**Developer mode**, choose **Load unpacked**, and select this directory.
 
-Supported pages are currently catalog, item details, and avatar surfaces. Account-dependent avatar editing, double clothing, wear/equip/favorite actions, and settings should be tested in an authenticated Roblox session.
+The generated `manifest.json` and its `.manifest-build.json` provenance file are
+both ignored by Git; keep them local. Re-running the build when nothing has
+changed writes nothing, and it will not overwrite a `manifest.json` it did not
+generate unless you pass `--force`.
+
+### Supported browser
+
+Chromium 111 or newer. Version 111 is the floor because the extension uses
+`world: "MAIN"` content scripts.
+
+**Firefox is not supported.** A Manifest V2 file is still in the tree but is
+untested against this codebase; see [docs/FIREFOX_SUPPORT.md](docs/FIREFOX_SUPPORT.md).
+
+### Reloading after a change
+
+1. Press the reload icon on the BETRoblox card in `chrome://extensions`.
+2. Reload the Roblox tab.
+
+Most settings apply without a reload, but whether a page-world hook is installed
+at all is decided when the page loads.
+
+### Checks
+
+```sh
+node tools/validate-extension.js                 # manifests and asset registries
+node --test "test/**/*.test.js"                  # page-world hook regression tests
+node tools/smoke-chromium.js                     # load the extension in headless Chromium
+```
+
+`smoke-chromium.js` finds a browser via `--chrome=…`, `CHROME_PATH`, or a local
+Playwright/Puppeteer cache, and prints everywhere it looked if it finds none.
+
+### Scope and testing status
+
+Redesigned pages are currently catalog, item details, and avatar surfaces.
+
+Automated tests cover the page-world hook contract only. Account-dependent
+avatar editing, double clothing, wear/equip/favorite actions, and settings
+persistence still need an authenticated Roblox session. **No authenticated QA
+has been done yet** — every row in [docs/QA_PHASE_ONE.md](docs/QA_PHASE_ONE.md)
+is marked `not run`.
+
+Documentation index: [docs/INDEX.md](docs/INDEX.md).
 
 
 Links
